@@ -1,1 +1,1 @@
-pip install flask , bcrypt, cryptography
+pass_serv , client היחידים שצריך
