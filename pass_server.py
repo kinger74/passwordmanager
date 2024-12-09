@@ -1,8 +1,8 @@
 import sqlite3
 import socket
 import threading
-from cryptography.fernet import Fernet
-import bcrypt
+from cryptography.fernet import Fernet #type:ignore
+import bcrypt #type:ignore 
 import re  # For regex-based password strength validation
 
 # Generates and loads encryption keys
@@ -115,9 +115,9 @@ def handle_client(client_socket):
 def register_user(username, password):
     # Ensure the password is secure
     if not is_secure_password(password):
-        return "Password is not secure. Please ensure it's at least 8 characters long, with upper and lower case letters, and numbers."
-
-    # Hash the password before saving
+        #(להוריד את זה עם ההשטג בגרסה הסופית)return "Password is not secure. Please ensure it's at least 8 characters long, with upper and lower case letters, and numbers."
+        vruu=1 # גם את זה
+     # Hash the password before saving
     hashed_password = hash_password(password)
     
     conn = sqlite3.connect('password_server.db')
@@ -146,8 +146,7 @@ def login_user(username, password):
     
 def save_password(username, service, password):
     # Ensure the password is secure
-    if not is_secure_password(password):
-        return "Password is not secure. Please ensure it's at least 8 characters long, with upper and lower case letters, and numbers."
+    #   להוריד את זה +השטגif not is_secure_password(password): return "Password is not secure. Please ensure it's at least 8 characters long, with upper and lower case letters, and numbers."
 
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()
@@ -182,8 +181,31 @@ def get_password(username, service):
         return f"Password for {service}: {decrypted_password}"
     else:
         return "Service not found for user"
+    
+def delete_password(username, service):
+    conn = sqlite3.connect('password_server.db')
+    c = conn.cursor()
+    
+    # Find the user by username
+    c.execute("SELECT id FROM users WHERE username=?", (username,))
+    user = c.fetchone()
+    
+    if not user:
+        return "User not found"
+    
+    user_id = user[0]
+    
+    # Delete the password for the given service
+    c.execute("DELETE FROM user_passwords WHERE user_id=? AND service_name=?", (user_id, service))
+    conn.commit()
+    
+    if c.rowcount > 0:
+        return f"Password for service '{service}' deleted successfully."
+    else:
+        return f"No password found for service '{service}' to delete."
 
-# New function to retrieve all passwords for a user
+
+#retrieve all passwords for a user
 def get_all_passwords(username):
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()
