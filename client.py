@@ -2,6 +2,11 @@ import socket
 import tkinter as tk
 from tkinter import messagebox, ttk
 import re
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager  # Automatically manage ChromeDriver
 
 # Improved error handling and input validation
 def validate_input(username=None, password=None, service=None):
@@ -104,10 +109,9 @@ def get_all_passwords():
         populate_delete_options(response)
 
 def populate_delete_options(password_list):
-    # Clear existing options
+
     delete_menu['menu'].delete(0, 'end')
     
-    # Split the response into lines and extract service names
     services = [service.strip() for service in password_list.split('\n') if service.strip()]
     for service in services:
         delete_menu['menu'].add_command(label=service, command=tk._setit(delete_var, service))
@@ -149,6 +153,40 @@ def logout():
     # Show login frame
     show_login_frame()
 
+# Function to automatically launch the website and autofill the credentials using Selenium
+def auto_fill_credentials():
+    if not logged_in_user:
+        messagebox.showwarning("Error", "Please log in first")
+        return
+    
+    selected_service = delete_var.get()
+    
+    if not selected_service:
+        messagebox.showwarning("Input Error", "Please select a service.")
+        return
+    
+
+    
+    try:
+        # Setup WebDriver using Chrome
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+        
+        # Assuming the website URL for the service is provided (can modify this to be stored)
+        website_url = f"https://www.{selected_service}.com"
+        driver.get(website_url)
+        
+        username_field = driver.find_element(By.ID, "username")
+        password_field = driver.find_element(By.ID, "password")
+        
+        username_field.send_keys(username)
+        password_field.send_keys(password)
+        
+        # Optionally, submit the form (or handle it manually)
+        password_field.send_keys(Keys.RETURN)
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Error opening the website: {e}")
+
 # Frame switching functions
 def show_password_management_frame():
     login_frame.pack_forget()
@@ -166,7 +204,7 @@ window.geometry("400x500")  # Set a default window size
 # Global variable to store logged-in user
 logged_in_user = None
 
-# -------------- Login / Register Frame --------------
+#Login / Register Frame
 login_frame = tk.Frame(window)
 
 tk.Label(login_frame, text="Username").grid(row=0, column=0, padx=5, pady=5)
@@ -185,9 +223,10 @@ login_button.grid(row=4, column=1, padx=5, pady=5)
 
 login_frame.pack(padx=10, pady=10)
 
-# -------------- Password Management Frame --------------
+# -------------  Password Management Frame --------------
 password_management_frame = tk.Frame(window)
 
+# Existing elements...
 tk.Label(password_management_frame, text="Service Name").grid(row=0, column=0, padx=5, pady=5)
 service_name_entry = tk.Entry(password_management_frame, width=30)
 service_name_entry.grid(row=0, column=1, padx=5, pady=5)
@@ -202,22 +241,23 @@ save_button.grid(row=2, column=0, padx=5, pady=5)
 get_all_button = tk.Button(password_management_frame, text="Get All Passwords", command=get_all_passwords)
 get_all_button.grid(row=2, column=1, padx=5, pady=5)
 
-# Text widget to display all passwords
 password_text = tk.Text(password_management_frame, width=50, height=10, wrap=tk.WORD)
 password_text.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
 
 # Delete Password Dropdown
 delete_var = tk.StringVar()
-delete_label = tk.Label(password_management_frame, text="Select Service to Delete:")
+delete_label = tk.Label(password_management_frame, text="Select Service")
 delete_label.grid(row=4, column=0, padx=5, pady=5)
 delete_menu = tk.OptionMenu(password_management_frame, delete_var, '')
 delete_menu.grid(row=4, column=1, padx=5, pady=5)
 
-delete_button = tk.Button(password_management_frame, text="Delete Password", command=delete_password)
-delete_button.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+delete_button = tk.Button(password_management_frame, text="Delete Password2", command=delete_password)
+delete_button.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+
+autofillbutton = tk.Button(password_management_frame, text="autofill Password", command=auto_fill_credentials)
+autofillbutton.grid(row=5, column=0, columnspan=3, padx=6, pady=5)
 
 logout_button = tk.Button(password_management_frame, text="Logout", command=logout)
-logout_button.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+logout_button.grid(row=6, column=0, columnspan=4, padx=5, pady=5)
 
-# Start the GUI event loop
 window.mainloop()

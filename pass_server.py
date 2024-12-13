@@ -230,7 +230,7 @@ def get_all_passwords(username):
     
     return password_list
 
-# New function to delete a password for a user
+# delete a password for a user
 def delete_password(username, service):
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()
