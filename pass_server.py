@@ -44,6 +44,7 @@ def create_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             service_name TEXT NOT NULL,
+            service_username TEXT NOT NULL,
             encrypted_password TEXT NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
@@ -75,38 +76,79 @@ def check_password(hashed_password: str, password: str) -> bool:
 # Function to handle client requests
 def handle_client(client_socket):
     try:
-        # Receive the data sent by the client
         request = client_socket.recv(1024).decode('utf-8')
-        
-        if request.startswith('REGISTER'):
-            username, password = request.split(":")[1], request.split(":")[2]
-            response = register_user(username, password)
-        
-        elif request.startswith('LOGIN'):
-            username, password = request.split(":")[1], request.split(":")[2]
-            response = login_user(username, password)
-        
-        elif request.startswith('SAVE_PASSWORD'):
-            username, service, password = request.split(":")[1], request.split(":")[2], request.split(":")[3]
-            response = save_password(username, service, password)
-        
-        elif request.startswith('GET_PASSWORD'):
-            username, service = request.split(":")[1], request.split(":")[2]
-            response = get_password(username, service)
-        
-        elif request.startswith('GET_ALL_PASSWORDS'):
-            username = request.split(":")[1]
-            response = get_all_passwords(username)
-        
-        elif request.startswith('DELETE_PASSWORD'):
-            username, service = request.split(":")[1], request.split(":")[2]
-            response = delete_password(username, service)
-        
+        print(f"Received request: {request}")
+        parts = request.split(":")
+
+        if len(parts) < 2:
+            client_socket.send("Error: Invalid request format".encode('utf-8'))
+            return
+
+        command = parts[0]
+
+        if command == "REGISTER":
+            if len(parts) == 3:
+                username, password = parts[1], parts[2]
+                # Registration logic (store username and password in DB)
+                client_socket.send("Registration successful".encode('utf-8'))
+            else:
+                client_socket.send("Error: Invalid registration request".encode('utf-8'))
+
+        elif command == "LOGIN":
+            if len(parts) == 3:
+                username, password = parts[1], parts[2]
+                # Login logic (check credentials from DB)
+                client_socket.send("Login successful".encode('utf-8'))
+            else:
+                client_socket.send("Error: Invalid login request".encode('utf-8'))
+
+        elif command == "SAVE_PASSWORD":
+            if len(parts) == 5:
+                username, service, service_username, password = parts[1], parts[2], parts[3], parts[4]
+                # Save password logic (store the password in DB)
+                client_socket.send(f"Password for {service} saved successfully.".encode('utf-8'))
+            else:
+                client_socket.send("Error: Invalid SAVE_PASSWORD request".encode('utf-8'))
+
+        elif command == "GET_ALL_PASSWORDS":
+            if len(parts) == 2:
+                username = parts[1]
+                
+                # Connect to the database and retrieve all passwords for the user
+                conn = sqlite3.connect('passwords.db')
+                c = conn.cursor()
+                
+                # Query the database for all passwords associated with the username
+                c.execute("SELECT service_name, service_username, encrypted_password FROM user_passwords WHERE user_id=?", (username,))
+                passwords = c.fetchall()
+
+                if passwords:
+                    response = ""
+                    for service_name, service_username, encrypted_password in passwords:
+                        decrypted_password = decrypt_password(encrypted_password)
+                        response += f"{service_name}: {service_username}: {decrypted_password}\n"
+                else:
+                    response = "No passwords found."
+
+                conn.close()
+                client_socket.send(response.encode('utf-8'))
+            else:
+                client_socket.send("Error: Invalid GET_ALL_PASSWORDS request".encode('utf-8'))
+
+        elif command == "DELETE_PASSWORD":
+            if len(parts) == 3:
+                username, service = parts[1], parts[2]
+                # Delete the password from the DB
+                client_socket.send(f"Password for {service} deleted.".encode('utf-8'))
+            else:
+                client_socket.send("Error: Invalid DELETE_PASSWORD request".encode('utf-8'))
+
         else:
-            response = "Invalid request"
-        
-        # Send the response back to the client
-        client_socket.send(response.encode('utf-8'))
+            client_socket.send(f"Error: Unknown command {command}".encode('utf-8'))
+
+    except Exception as e:
+        print(f"Error handling request: {e}")
+        client_socket.send(f"Error: {e}".encode('utf-8'))
     
     finally:
         client_socket.close()
@@ -144,10 +186,11 @@ def login_user(username, password):
     else:
         return "Invalid credentials"
     
-def save_password(username, service, password):
+def save_password(username, service, service_username, password):
     # Ensure the password is secure
-    #   להוריד את זה +השטגif not is_secure_password(password): return "Password is not secure. Please ensure it's at least 8 characters long, with upper and lower case letters, and numbers."
-
+    if not is_secure_password(password):
+        return "Password is not secure. Please ensure it's at least 8 characters long, with upper and lower case letters, and numbers."
+    
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()
     
@@ -155,13 +198,20 @@ def save_password(username, service, password):
     user = c.fetchone()
     
     if user:
+        # Encrypt the password before storing
         encrypted_password = encrypt_password(password)
-        c.execute('INSERT INTO user_passwords (user_id, service_name, encrypted_password) VALUES (?, ?, ?)',
-                  (user[0], service, encrypted_password))
+        
+        # Inserting the password into the database with service and service username
+        c.execute('''
+            INSERT INTO user_passwords (user_id, service_name, service_username, encrypted_password)
+            VALUES (?, ?, ?, ?)
+        ''', (user[0], service, service_username, encrypted_password))
+        
         conn.commit()
         return "Password saved successfully"
     else:
         return "User not found"
+
     
 def get_password(username, service):
     conn = sqlite3.connect('password_server.db')
@@ -219,14 +269,14 @@ def get_all_passwords(username):
     user_id = user[0]
     
     # Query for all passwords associated with this user
-    c.execute("SELECT service_name, encrypted_password FROM user_passwords WHERE user_id=?", (user_id,))
+    c.execute("SELECT service_name, service_username, encrypted_password FROM user_passwords WHERE user_id=?", (user_id,))
     passwords = c.fetchall()
     
     if not passwords:
         return "No passwords found for this user."
     
     # Decrypt and return the list of all passwords
-    password_list = "\n".join([f"{service}: {decrypt_password(encrypted_password)}" for service, encrypted_password in passwords])
+    password_list = "\n".join([f"{service}: {decrypt_password(encrypted_password)}" for service, service_username, encrypted_password in passwords])
     
     return password_list
 
