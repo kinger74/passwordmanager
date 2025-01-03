@@ -3,9 +3,8 @@ import socket
 import threading
 from cryptography.fernet import Fernet #type:ignore
 import bcrypt #type:ignore 
-import re  # For regex-based password strength validation
+import re 
 
-# Generates and loads encryption keys
 def generate_key():
     key = Fernet.generate_key()
     with open("secret.key", "wb") as key_file:
@@ -14,20 +13,17 @@ def generate_key():
 def load_key():
     return open("secret.key", "rb").read()
 
-# Password strength validation function
 def is_secure_password(password):
-    # Password must be at least 8 characters long, include uppercase, lowercase, and numbers/special characters
-    if len(password) < 8:
-        return False
-    if not re.search(r"[A-Z]", password):  # At least one uppercase letter
-        return False
-    if not re.search(r"[a-z]", password):  # At least one lowercase letter
-        return False
-    if not re.search(r"\d", password):  # At least one number
-        return False
+    #if len(password) < 8:
+      #  return False
+   # if not re.search(r"[A-Z]", password):  # At least one uppercase letter
+    #    return False
+ #   if not re.search(r"[a-z]", password):  # At least one lowercase letter
+  #      return False
+   # if not re.search(r"\d", password):  # At least one number
+    #    return False
     return True
 
-# Database functions
 def create_db():
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()
@@ -53,7 +49,6 @@ def create_db():
     conn.commit()
     conn.close()
 
-# Encrypt and decrypt passwords using Fernet
 def encrypt_password(password: str) -> str:
     fernet = Fernet(load_key())
     encrypted_password = fernet.encrypt(password.encode())
@@ -73,7 +68,6 @@ def hash_password(password: str) -> str:
 def check_password(hashed_password: str, password: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-# Function to handle client requests
 def handle_client(client_socket):
     try:
         request = client_socket.recv(1024).decode('utf-8')
@@ -89,48 +83,31 @@ def handle_client(client_socket):
         if command == "REGISTER":
             if len(parts) == 3:
                 username, password = parts[1], parts[2]
-                # Registration logic (store username and password in DB)
-                client_socket.send("Registration successful".encode('utf-8'))
+                response = register_user(username, password)
+                client_socket.send(response.encode('utf-8'))
             else:
                 client_socket.send("Error: Invalid registration request".encode('utf-8'))
 
         elif command == "LOGIN":
             if len(parts) == 3:
                 username, password = parts[1], parts[2]
-                # Login logic (check credentials from DB)
-                client_socket.send("Login successful".encode('utf-8'))
+                response = login_user(username, password)
+                client_socket.send(response.encode('utf-8'))
             else:
                 client_socket.send("Error: Invalid login request".encode('utf-8'))
 
         elif command == "SAVE_PASSWORD":
             if len(parts) == 5:
                 username, service, service_username, password = parts[1], parts[2], parts[3], parts[4]
-                # Save password logic (store the password in DB)
-                client_socket.send(f"Password for {service} saved successfully.".encode('utf-8'))
+                response = save_password(username, service, service_username, password)
+                client_socket.send(response.encode('utf-8'))
             else:
                 client_socket.send("Error: Invalid SAVE_PASSWORD request".encode('utf-8'))
 
         elif command == "GET_ALL_PASSWORDS":
             if len(parts) == 2:
                 username = parts[1]
-                
-                # Connect to the database and retrieve all passwords for the user
-                conn = sqlite3.connect('passwords.db')
-                c = conn.cursor()
-                
-                # Query the database for all passwords associated with the username
-                c.execute("SELECT service_name, service_username, encrypted_password FROM user_passwords WHERE user_id=?", (username,))
-                passwords = c.fetchall()
-
-                if passwords:
-                    response = ""
-                    for service_name, service_username, encrypted_password in passwords:
-                        decrypted_password = decrypt_password(encrypted_password)
-                        response += f"{service_name}: {service_username}: {decrypted_password}\n"
-                else:
-                    response = "No passwords found."
-
-                conn.close()
+                response = get_all_passwords(username)
                 client_socket.send(response.encode('utf-8'))
             else:
                 client_socket.send("Error: Invalid GET_ALL_PASSWORDS request".encode('utf-8'))
@@ -138,8 +115,8 @@ def handle_client(client_socket):
         elif command == "DELETE_PASSWORD":
             if len(parts) == 3:
                 username, service = parts[1], parts[2]
-                # Delete the password from the DB
-                client_socket.send(f"Password for {service} deleted.".encode('utf-8'))
+                response = delete_password(username, service)
+                client_socket.send(response.encode('utf-8'))
             else:
                 client_socket.send("Error: Invalid DELETE_PASSWORD request".encode('utf-8'))
 
@@ -293,7 +270,6 @@ def delete_password(username, service):
     
     user_id = user[0]
     
-    # Delete the password for the given service
     c.execute("DELETE FROM user_passwords WHERE user_id=? AND service_name=?", (user_id, service))
     conn.commit()
     
