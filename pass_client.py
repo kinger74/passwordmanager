@@ -8,7 +8,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-def validate_input(username=None, password=None, service=None, service_username=None): #להורי השתגים בגרסה אמיתית
+def validate_input(username=None, password=None, service=None, service_username=None): #להוריד השתגים בגרסה אמיתית
     """Validate input fields with basic security checks."""
     #if username and not re.match(r'^[a-zA-Z0-9_]{3,20}$', username):
       #  return False, "Username must be 3-20 alphanumeric characters or underscore"
@@ -19,7 +19,6 @@ def validate_input(username=None, password=None, service=None, service_username=
     
     return True, "Valid input"
 
-# Function to send requests to the server and get responses
 def send_request(request):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
@@ -32,8 +31,6 @@ def send_request(request):
     except Exception as e:
         return f"Error: {e}"
 
-# Function to handle user registration
-# Function to handle user registration
 def register_user():
     username = username_entry.get().strip()
     password = password_entry.get()
@@ -67,12 +64,9 @@ def login_user():
     else:
         messagebox.showerror("Login Failed", response)
 
-
-# Function to save a password for a service
-# Function to save a password for a service
 def save_password():
     service = service_name_entry.get().strip()
-    service_username = service_username_entry.get().strip()  # Add this if you need to use service username
+    service_username = service_username_entry.get().strip()
     password = service_password_entry.get()
 
     valid, message = validate_input(service=service, password=password)
@@ -84,32 +78,26 @@ def save_password():
         messagebox.showwarning("Error", "Please log in first")
         return
 
-    # Correct request format for saving the password
     request = f"SAVE_PASSWORD:{logged_in_user}:{service}:{service_username}:{password}"
     response = send_request(request)
     messagebox.showinfo("Save Password", response)
 
-    # Clear password entry after saving
     service_password_entry.delete(0, tk.END)
 
-# Function to get all saved passwords
 def get_all_passwords():
     if not logged_in_user:
         messagebox.showwarning("Error", "Please log in first")
         return
     
-    # Correct request format for getting all passwords
     request = f"GET_ALL_PASSWORDS:{logged_in_user}"
     response = send_request(request)
     
     if response.startswith("Error"):
         messagebox.showerror("Error", response)
     else:
-        # Clear the text box before inserting new passwords
         password_text.delete(1.0, tk.END)
         password_text.insert(tk.END, response)
         
-        # Populate delete dropdown with services
         populate_delete_options(response)
 
 def populate_delete_options(password_list):
@@ -124,7 +112,7 @@ def delete_password():
         messagebox.showwarning("Error", "Please log in first")
         return
     
-    selected_service = delete_var.get()
+    selected_service = delete_var.get(Service)
     
     if not selected_service:
         messagebox.showwarning("Input Error", "Please select a service to delete.")
@@ -138,12 +126,10 @@ def delete_password():
     if response.startswith("Password"):
         get_all_passwords()
 
-# Function to logout and reset state
 def logout():
     global logged_in_user
     logged_in_user = None
     
-    # Clear entry fields
     username_entry.delete(0, tk.END)
     service_username_entry.delete(0, tk.END)
     password_entry.delete(0, tk.END)
@@ -151,13 +137,10 @@ def logout():
     service_password_entry.delete(0, tk.END)
     password_text.delete(1.0, tk.END)
     
-    # Reset delete dropdown
     delete_var.set('')
     
-    # Show login frame
     show_login_frame()
 
-# Function to automatically launch the website and autofill the credentials using Selenium
 def auto_fill_credentials():
     if not logged_in_user:
         messagebox.showwarning("Error", "Please log in first")
@@ -169,25 +152,12 @@ def auto_fill_credentials():
         messagebox.showwarning("Input Error", "Please select a service.")
         return
     
-    try:
-        # Setup WebDriver using Chrome
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-        
-        # Assuming the website URL for the service is provided (can modify this to be stored)
-        website_url = f"https://www.{selected_service}.com"
-        driver.get(website_url)
-        
-        username_field = driver.find_element(By.ID, "username")
-        password_field = driver.find_element(By.ID, "password")
-        
-        username_field.send_keys(logged_in_user)  # Use logged_in_user for username
-        password_field.send_keys(service_password_entry.get())  # Use saved password for autofill
-        
-        # Optionally, submit the form (or handle it manually)
-        password_field.send_keys(Keys.RETURN)
-        
-    except Exception as e:
-        messagebox.showerror("Error", f"Error opening the website: {e}")
+    driver = webdriver.Chrome()
+    driver.get("https://www.google.com")
+    search_bar=driver.find_element("name","q")
+    search_bar.send_keys(selected_service +"login")
+    search_bar.send_keys(Keys.RETURN)
+
 
 # Frame switching functions
 def show_password_management_frame():
@@ -198,7 +168,6 @@ def show_login_frame():
     password_management_frame.pack_forget()
     login_frame.pack(padx=10, pady=10)
 
-# Creating the main window
 window = tk.Tk()
 window.title("Secure Password Manager")
 window.geometry("400x500")  # Set a default window size
