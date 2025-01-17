@@ -1,12 +1,12 @@
 import socket
 import tkinter as tk
 from tkinter import messagebox
+import time  
 import re
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium import webdriver 
+from selenium.webdriver.common.keys import Keys 
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager 
 
 def validate_input(username=None, password=None, service=None, service_username=None): #להוריד השתגים בגרסה אמיתית
     """Validate input fields with basic security checks."""
@@ -44,7 +44,6 @@ def register_user():
     response = send_request(request)
     messagebox.showinfo("Registration", response)
 
-# Function to handle user login
 def login_user():
     global logged_in_user
     username = username_entry.get().strip()
@@ -112,7 +111,7 @@ def delete_password():
         messagebox.showwarning("Error", "Please log in first")
         return
     
-    selected_service = delete_var.get(Service)
+    selected_service = delete_var.get(service_name_entry)
     
     if not selected_service:
         messagebox.showwarning("Input Error", "Please select a service to delete.")
@@ -151,13 +150,22 @@ def auto_fill_credentials():
     if not selected_service:
         messagebox.showwarning("Input Error", "Please select a service.")
         return
-    
-    driver = webdriver.Chrome()
-    driver.get("https://www.google.com")
-    search_bar=driver.find_element("name","q")
-    search_bar.send_keys(selected_service +"login")
-    search_bar.send_keys(Keys.RETURN)
+    print(selected_service)
+    if selected_service.startswith("spotify"):
+        print ("spotify selected")
+        chrome_options = Options()
+        chrome_options.add_experimental_option("detach", True)
+        driver = webdriver.Chrome()
+        driver.get("https://accounts.spotify.com/en/login")
+        time.sleep(3) #שיהיה לעמוד זמן להיטען
 
+        username_field  =  driver.find_element("id",    "login-username") 
+        password_field  =  driver.find_element("id",     "login-password")
+
+        username_field.send_keys(username)
+        password_field.send_keys(password)
+        
+        password_field.send_keys(Keys.ENTER)
 
 # Frame switching functions
 def show_password_management_frame():
