@@ -190,24 +190,74 @@ def save_password(username, service, service_username, password):
         return "User not found"
 
     
-def get_password(username, service):
+def get_password(username, service, service_username): #retrieve a password for a user
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()
     
+    # Fix SQL syntax - add comma between selected columns
     c.execute('''
-        SELECT user_passwords.encrypted_password
+        SELECT user_passwords.encrypted_password, user_passwords.service_username
         FROM user_passwords
-        JOIN users ON users.id = user_passwords.user_id
-        WHERE users.username = ? AND user_passwords.service_name = ?
-    ''', (username, service))
+        JOIN users ON users.id = user_passwords.user_id   
+        WHERE users.username = ? AND user_passwords.service_name = ? AND user_passwords.service_username = ?
+    ''', (username, service, service_username))
     
     result = c.fetchone()
+    conn.close()
     
     if result:
-        decrypted_password = decrypt_password(result[0])
-        return f"Password for {service}: {decrypted_password}"
+        try:
+            decrypted_password = decrypt_password(result[0])
+            return f"service: {service}, service username: {service_username}, service password: {decrypted_password}"
+        except Exception as e:
+            print(f"Error decrypting password: {e}")
+            return "Error decrypting password"
     else:
         return "Service not found for user"
+
+def get_all_passwords(username): #retrieve all passwords for a user
+    conn = None
+    try:
+        conn = sqlite3.connect('password_server.db')
+        c = conn.cursor()
+        
+        # First check if user exists
+        c.execute("SELECT id FROM users WHERE username=?", (username,))
+        user = c.fetchone()
+        
+        if not user:
+            return "User not found"
+        
+        # Get all passwords for user
+        c.execute("""
+            SELECT service_name, service_username, encrypted_password 
+            FROM user_passwords 
+            WHERE user_id=?
+        """, (user[0],))
+        
+        passwords = c.fetchall()
+        
+        if not passwords:
+            return "No passwords found for this user."
+            
+        # Format each password entry
+        formatted_passwords = []
+        for service, service_username, encrypted_pass in passwords:
+            try:
+                decrypted = decrypt_password(encrypted_pass)
+                formatted_passwords.append(f"{service}:{service_username}:{decrypted}")
+            except Exception as e:
+                print(f"Error decrypting password for {service}: {e}")
+                continue
+        
+        return "\n".join(formatted_passwords)
+        
+    except Exception as e:
+        print(f"Database error: {e}")
+        return f"Error retrieving passwords: {str(e)}"
+    finally:
+        if conn:
+            conn.close()
     
 def delete_password(username, service):
     conn = sqlite3.connect('password_server.db')
@@ -231,33 +281,6 @@ def delete_password(username, service):
     else:
         return f"No password found for service '{service}' to delete."
 
-
-#retrieve all passwords for a user
-def get_all_passwords(username):
-    conn = sqlite3.connect('password_server.db')
-    c = conn.cursor()
-    
-    c.execute("SELECT id FROM users WHERE username=?", (username,))
-    user = c.fetchone()
-    
-    if not user:
-        return "User not found"
-    
-    user_id = user[0]
-    
-    # Query for all passwords associated with this user
-    c.execute("SELECT service_name, service_username, encrypted_password FROM user_passwords WHERE user_id=?", (user_id,))
-    passwords = c.fetchall()
-    
-    if not passwords:
-        return "No passwords found for this user."
-    
-    # Decrypt and return the list of all passwords
-    password_list = "\n".join([f"{service}: {decrypt_password(encrypted_password)}" for service, service_username, encrypted_password in passwords])
-    
-    return password_list
-
-# delete a password for a user
 def delete_password(username, service):
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()

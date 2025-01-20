@@ -91,21 +91,30 @@ def get_all_passwords():
     request = f"GET_ALL_PASSWORDS:{logged_in_user}"
     response = send_request(request)
     
-    if response.startswith("Error"):
-        messagebox.showerror("Error", response)
-    else:
-        password_text.delete(1.0, tk.END)
+    password_text.delete(1.0, tk.END)
+    
+    if response.startswith("Error") or response == "No passwords found":
         password_text.insert(tk.END, response)
+        return
         
-        populate_delete_options(response)
+    for line in response.split("\n"):
+        if line.strip():
+            service, username, password = line.split(":", 2)
+            display_text = f"Service: {service}\nUsername: {username}\nPassword: {password}\n{'-'*30}\n"
+            password_text.insert(tk.END, display_text)
+            
+    populate_delete_options(response)
 
 def populate_delete_options(password_list):
     delete_menu['menu'].delete(0, 'end')
     
-    services = [service.strip() for service in password_list.split('\n') if service.strip()]
-    for service in services:
-        delete_menu['menu'].add_command(label=service, command=tk._setit(delete_var, service))
-
+    for line in password_list.split('\n'):
+        if line.strip():
+            service, _, _ = line.split(":", 2)  # Split only first 2 colons
+            delete_menu['menu'].add_command(
+                label=service, 
+                command=tk._setit(delete_var, service)
+            )
 def delete_password():
     if not logged_in_user:
         messagebox.showwarning("Error", "Please log in first")
