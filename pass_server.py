@@ -194,7 +194,6 @@ def get_password(username, service, service_username): #retrieve a password for 
     conn = sqlite3.connect('password_server.db')
     c = conn.cursor()
     
-    # Fix SQL syntax - add comma between selected columns
     c.execute('''
         SELECT user_passwords.encrypted_password, user_passwords.service_username
         FROM user_passwords

@@ -90,9 +90,9 @@ def get_all_passwords():
     
     request = f"GET_ALL_PASSWORDS:{logged_in_user}"
     response = send_request(request)
-    
+
     password_text.delete(1.0, tk.END)
-    
+
     if response.startswith("Error") or response == "No passwords found":
         password_text.insert(tk.END, response)
         return
@@ -120,7 +120,7 @@ def delete_password():
         messagebox.showwarning("Error", "Please log in first")
         return
     
-    selected_service = delete_var.get(service_name_entry)
+    selected_service = delete_var.get()  # Remove service_name_entry parameter
     
     if not selected_service:
         messagebox.showwarning("Input Error", "Please select a service to delete.")
@@ -130,7 +130,6 @@ def delete_password():
     response = send_request(request)
     messagebox.showinfo("Delete Password", response)
     
-    # After deletion, refresh the list of passwords
     if response.startswith("Password"):
         get_all_passwords()
 
@@ -150,35 +149,96 @@ def logout():
     show_login_frame()
 
 def auto_fill_credentials():
-    username=get_all_passwords(username_field)
-    password=get_all_passwords(password_entry)
     if not logged_in_user:
         messagebox.showwarning("Error", "Please log in first")
         return
     
     selected_service = delete_var.get()
-    
     if not selected_service:
         messagebox.showwarning("Input Error", "Please select a service.")
         return
-    print(selected_service)
-    if selected_service.startswith("spotify"):
-        print ("spotify selected")
+
+    request = f"GET_ALL_PASSWORDS:{logged_in_user}"
+    response = send_request(request)
+    
+    if response.startswith("Error") or response == "No passwords found":
+        messagebox.showwarning("Error", response)
+        return
+
+    username, password = None, None
+    for line in response.split("\n"):
+        if line.strip():
+            service, service_username, service_password = line.split(":", 2)
+            if service == selected_service:
+                username = service_username
+                password = service_password
+                break
+
+    if not username or not password:
+        messagebox.showwarning("Error", "Credentials not found for the selected service.")
+        return
+
+    try:
         chrome_options = Options()
         chrome_options.add_experimental_option("detach", True)
-        driver = webdriver.Chrome()
-        driver.get("https://accounts.spotify.com/en/login")
-        time.sleep(3) #שיהיה לעמוד זמן להיטען
+        chrome_options.add_experimental_option("excludeSwitches", ['enable-automation'])
+        driver = webdriver.Chrome(options=chrome_options)
+        
+        if selected_service.startswith("spotify"):
+            driver.get("https://accounts.spotify.com/en/login")
+            time.sleep(3)
+            username_field = driver.find_element("id", "login-username")
+            password_field = driver.find_element("id", "login-password")
+            password_field.send_keys(Keys.ENTER)
 
-        username_field  =  driver.find_element("id",    "login-username") 
-        password_field  =  driver.find_element("id",     "login-password")
+            
+        elif selected_service.startswith("wikipedia"):
+            driver.get("https://en.wikipedia.org/w/index.php?title=Special:UserLogin")
+            time.sleep(3)
+            username_field = driver.find_element("id", "wpName1")
+            password_field = driver.find_element("id", "wpPassword1")
+            password_field.send_keys(Keys.ENTER)
 
+            
+        elif selected_service.startswith("google"):
+            driver.get("https://accounts.google.com/signin")
+            time.sleep(3)
+            username_field = driver.find_element("name", "identifier")
+            username_field.send_keys(username + Keys.ENTER)
+            time.sleep(3)
+            password_field = driver.find_element("name", "password")
+            password_field.send_keys(Keys.ENTER)
+
+            
+        elif selected_service.startswith("facebook"):
+            driver.get("https://www.facebook.com/login")
+            time.sleep(3)
+            username_field = driver.find_element("id", "email")
+            password_field = driver.find_element("id", "pass")
+            password_field.send_keys(Keys.ENTER)
+
+            
+        elif selected_service.startswith("amazon"):
+            driver.get("https://www.amazon.com/log/s?k=log+in")
+            time.sleep(3)
+            username_field = driver.find_element("id", "ap_email")
+            username_field.send_keys(username + Keys.ENTER)
+            time.sleep(3)
+            password_field = driver.find_element("id", "ap_password")
+            password_field.send_keys(Keys.ENTER)
+
+        
         username_field.send_keys(username)
         password_field.send_keys(password)
-        
+
         password_field.send_keys(Keys.ENTER)
 
-# Frame switching functions
+        
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to auto-fill: {str(e)}")
+        driver.quit()
+
 def show_password_management_frame():
     login_frame.pack_forget()
     password_management_frame.pack(padx=10, pady=10)
