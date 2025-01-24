@@ -3,10 +3,10 @@ import tkinter as tk
 from tkinter import messagebox
 import time  
 import re
-from selenium import webdriver 
-from selenium.webdriver.common.keys import Keys 
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager 
+from selenium import webdriver  # type: ignore
+from selenium.webdriver.common.keys import Keys  # type: ignore
+from selenium.webdriver.chrome.options import Options # type: ignore
+from webdriver_manager.chrome import ChromeDriverManager  # type: ignore
 
 def validate_input(username=None, password=None, service=None, service_username=None): #להוריד השתגים בגרסה אמיתית
     """Validate input fields with basic security checks."""
@@ -150,6 +150,8 @@ def logout():
     show_login_frame()
 
 def auto_fill_credentials():
+    username=get_all_passwords(username_field)
+    password=get_all_passwords(password_entry)
     if not logged_in_user:
         messagebox.showwarning("Error", "Please log in first")
         return
