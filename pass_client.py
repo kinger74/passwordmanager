@@ -82,7 +82,10 @@ def save_password():
     messagebox.showinfo("Save Password", response)
 
     service_password_entry.delete(0, tk.END)
-
+    service_name_entry.delete(0, tk.END)
+    service_username_entry.delete(0, tk.END)
+    get_all_passwords()
+    
 def get_all_passwords():
     if not logged_in_user:
         messagebox.showwarning("Error", "Please log in first")
@@ -93,17 +96,25 @@ def get_all_passwords():
 
     password_text.delete(1.0, tk.END)
 
-    if response.startswith("Error") or response == "No passwords found":
-        password_text.insert(tk.END, response)
+    # Handle empty or error responses
+    if not response or response.startswith("Error") or response == "No passwords found":
+        password_text.insert(tk.END, "No passwords found")
+        delete_menu['menu'].delete(0, 'end')  # Clear delete menu
         return
-        
-    for line in response.split("\n"):
-        if line.strip():
-            service, username, password = line.split(":", 2)
-            display_text = f"Service: {service}\nUsername: {username}\nPassword: {password}\n{'-'*30}\n"
-            password_text.insert(tk.END, display_text)
-            
-    populate_delete_options(response)
+
+    try:
+        for line in response.split("\n"):
+            if line.strip():  # Only process non-empty lines
+                try:
+                    service, username, password = line.split(":", 2)
+                    display_text = f"Service: {service}\nUsername: {username}\nPassword: {password}\n{'-'*30}\n"
+                    password_text.insert(tk.END, display_text)
+                except ValueError:
+                    continue  # Skip malformed lines
+                    
+        populate_delete_options(response)
+    except Exception as e:
+        password_text.insert(tk.END, "no passwords found")
 
 def populate_delete_options(password_list):
     delete_menu['menu'].delete(0, 'end')
@@ -132,6 +143,7 @@ def delete_password():
     
     if response.startswith("Password"):
         get_all_passwords()
+    delete_var.set('')
 
 def logout():
     global logged_in_user
